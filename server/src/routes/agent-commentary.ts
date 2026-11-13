@@ -1,4 +1,4 @@
-import { Router, type Request } from "express";
+import { Router, type Request, type Response } from "express";
 import { companies, type Db } from "@paperclipai/db";
 import { eq } from "drizzle-orm";
 import { agentCommentaryQuerySchema, isUuidLike } from "@paperclipai/shared";
@@ -50,7 +50,7 @@ export function agentCommentaryRoutes(db: Db) {
       return;
     }
     if (req.actor.type !== "board") await denyAgentRead(companyId);
-    res.json(await reader.list(companyId, query.data, await authorizeBoardRead(req, companyId)));
+    res.json(await reader.list(companyId, query.data, await authorizeBoardRead(req, companyId), req.actor.userId ?? null));
   });
 
   router.get("/companies/:companyId/agent-commentary/:id", async (req, res) => {
@@ -67,10 +67,26 @@ export function agentCommentaryRoutes(db: Db) {
     if (req.actor.type !== "board") await denyAgentRead(companyId);
     const readCondition = await authorizeBoardRead(req, companyId);
     if (!isUuidLike(id)) throw notFound("Commentary not found");
-    const entry = await reader.get(companyId, id, readCondition);
+    const entry = await reader.get(companyId, id, readCondition, req.actor.userId ?? null);
     if (!entry) throw notFound("Commentary not found");
     res.json(entry);
   });
+
+  function setVote(voted: boolean) {
+    return async (req: Request, res: Response) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+      const readCondition = await authorizeBoardRead(req, companyId);
+      if (!req.actor.userId) throw forbidden("Voting requires a signed-in person");
+      const id = req.params.id as string;
+      if (!isUuidLike(id)) throw notFound("Commentary not found");
+      const state = await reader.setVote(companyId, id, readCondition, req.actor.userId, voted);
+      if (!state) throw notFound("Commentary not found");
+      res.json(state);
+    };
+  }
+  router.put("/companies/:companyId/agent-commentary/:id/vote", setVote(true));
+  router.delete("/companies/:companyId/agent-commentary/:id/vote", setVote(false));
   router.post("/companies/:companyId/agent-commentary", async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
