@@ -995,7 +995,6 @@ export function Browse({ renderAccountDetails = (connection) => connection.conne
   const showAssistantConnection = (source === "paperclip" || source === "all" ||
     (source === "installed" && (!assistantConnections.loaded || assistantConnections.rows.some(row => !row.revokedAt)))) &&
     (!trimmed || "assistant connection (mcp) paperclip codex claude opencode".includes(trimmed));
-  // An app name search keeps the custom option: a missing app is when a user needs it most.
   const showCustomConnector = source === "paperclip" || source === "all";
   const customConnectorMatches = showCustomConnector && (!trimmed || "connect your own tool custom mcp server".includes(trimmed));
 
